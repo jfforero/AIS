@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>360 Panorama Viewer - Random Scenes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"/>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+        #panorama {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        #audio-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1000;
+            border-top: 2px solid #764ba2;
+        }
+        #audio-player {
+            width: 80%;
+            margin-bottom: 8px;
+        }
+        #audio-info {
+            text-align: center;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        #google-form-section {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: none;
+        }
+        .loading-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            z-index: 1002;
+            text-align: center;
+        }
+        #submit-next, #reload-random-scene {
+            background: linear-gradient(135deg, #34a853 0%, #2e8b57 100%);
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            height: 36px;
+            min-width: 160px;
+        }
+        #reload-random-scene {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        #submit-next:hover, #reload-random-scene:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="panorama"></div>
+
+    <div class="loading-message" id="loading-message" style="display: none;">
+        Loading scene, please wait...
+    </div>
+
+    <div id="audio-controls">
+        <div id="audio-info">Loading audio...</div>
+        <audio id="audio-player" controls></audio>
+        <div class="button-container">
+            <button id="submit-next" style="display: none;">Evaluate Scene</button>
+            <button id="reload-random-scene" style="display: none;">Next Sample</button>
+        </div>
+    </div>
+
+    
+    <div id="google-form-section">
+        <iframe id="google-form-iframe"
+                src=""
+                width="100%"
+                height="1024px"
+                frameborder="0"
+                marginheight="0"
+                marginwidth="0"
+                style="border-radius: 8px;">
+        </iframe>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+
+    <script>
+        let viewer = null;
+        let scenes = [];
+        let currentSceneIndex = 0;
+        let completedScenes = new Set();
+        let autoRotateInterval = null;
+
+        const IMAGE_EXT = "jpg";
+        const AUDIO_EXT = "wav";
+
+        const GOOGLE_FORM_BASE =
+            "https://docs.google.com/forms/d/e/1FAIpQLScuauKNGZYfLLPjtJ2c9T4KiT2w033fE9UUafUGbkpmMO4BRg/viewform?usp=pp_url";
+
+        const FORM_SCENE_FIELD = "entry.1636001789";
+
+
+        function showGoogleForm() {
+            document.getElementById('google-form-section').style.display = 'block';
+            document.getElementById('google-form-section').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function hideGoogleForm() {
+            document.getElementById('google-form-section').style.display = 'none';
+        }
+
+        async function discoverScenes() {
+            scenes = [];
+            for (let i = 1; i <= 64; i++) {
+                scenes.push({
+                    id: "scene" + i,
+                    image: `images/scene${i}.${IMAGE_EXT}`,
+                    audio: `audio/scene${i}.${AUDIO_EXT}`,
+                });
+            }
+            loadScene(getRandomSceneIndex());
+        }
+
+        function getRandomSceneIndex() {
+            if (completedScenes.size >= scenes.length) {
+                completedScenes.clear();
+            }
+
+            let available = scenes
+                .map((_, idx) => idx)
+                .filter(idx => !completedScenes.has(idx));
+
+            return available[Math.floor(Math.random() * available.length)];
+        }
+
+        function startAutoRotation() {
+            if (autoRotateInterval) clearInterval(autoRotateInterval);
+
+            autoRotateInterval = setInterval(() => {
+                if (viewer?.getYaw) {
+                    viewer.setYaw(viewer.getYaw() + 15.0);
+                }
+            }, 100);
+        }
+
+        function stopAutoRotation() {
+            if (autoRotateInterval) {
+                clearInterval(autoRotateInterval);
+                autoRotateInterval = null;
+            }
+        }
+
+        function loadScene(index) {
+            const scene = scenes[index];
+            currentSceneIndex = index;
+
+            hideGoogleForm();
+            document.getElementById('submit-next').style.display = 'block';
+            document.getElementById('reload-random-scene').style.display = 'none';
+
+            // Reset the form iframe
+            document.getElementById('google-form-iframe').src = "";
+
+            document.getElementById('loading-message').style.display = 'block';
+
+            const img = new Image();
+            img.onload = function () {
+                if (viewer) viewer.destroy();
+                stopAutoRotation();
+
+                viewer = pannellum.viewer('panorama', {
+                    "type": "equirectangular",
+                    "panorama": scene.image,
+                    "autoLoad": true,
+                    "showControls": false,
+                    "mouseZoom": false,
+                    "keyboardZoom": false,
+                    "hfov": 145,
+                    "minFov": 145,
+                    "maxFov": 145
+                });
+
+                setTimeout(startAutoRotation, 1200);
+
+                const audioPlayer = document.getElementById('audio-player');
+                const audioInfo = document.getElementById('audio-info');
+
+                fetch(scene.audio, { method: 'HEAD' }).then(r => {
+                    if (r.ok) {
+                        audioPlayer.src = scene.audio;
+                        audioInfo.textContent = "Listen to the audio while interacting with the scene.";
+
+                        audioPlayer.muted = true;
+                        audioPlayer.play().then(() => {
+                            setTimeout(() => { audioPlayer.muted = false; }, 400);
+                        }).catch(() => {
+                            audioInfo.textContent = "Click play to listen.";
+                        });
+
+                    } else {
+                        audioPlayer.src = "";
+                        audioInfo.textContent = "No audio available.";
+                    }
+                });
+
+                document.getElementById('loading-message').style.display = 'none';
+            };
+
+            img.onerror = function () {
+                console.error("Image not found:", scene.image);
+                document.getElementById('loading-message').style.display = 'none';
+            };
+
+            img.src = scene.image;
+        }
+
+        function loadRandomScene() {
+            completedScenes.add(currentSceneIndex);
+            loadScene(getRandomSceneIndex());
+        }
+
+        function handleFormSubmission() {
+            document.getElementById('submit-next').style.display = 'none';
+            document.getElementById('reload-random-scene').style.display = 'block';
+
+            const sceneId = scenes[currentSceneIndex].id;
+            const iframe = document.getElementById("google-form-iframe");
+
+            // Load form with the current scene ID
+            iframe.src = `${GOOGLE_FORM_BASE}&${FORM_SCENE_FIELD}=${sceneId}`;
+
+            showGoogleForm();
+            completedScenes.add(currentSceneIndex);
+        }
+
+        window.addEventListener('load', function () {
+            discoverScenes();
+
+            document.getElementById('submit-next').addEventListener('click', handleFormSubmission);
+            document.getElementById('reload-random-scene').addEventListener('click', loadRandomScene);
+
+            document.getElementById('panorama').addEventListener('mousedown', stopAutoRotation);
+            document.getElementById('panorama').addEventListener('mouseup', () =>
+                setTimeout(startAutoRotation, 3000)
+            );
+        });
+    </script>
+</body>
+</html>
