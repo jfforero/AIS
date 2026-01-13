@@ -257,7 +257,7 @@
               audioPlayer.play().then(() => {
                 audioInfo.textContent = "Tap/click anywhere to enable sound (autoplay is running muted).";
               }).catch(() => {
-                audioInfo.textContent = "Click play to listen.";
+                audioInfo.textContent = "Unmute and Click play to listen.";
               });
             });
           } else {
@@ -315,3 +315,4 @@
   </script>
 </body>
 </html>
+
