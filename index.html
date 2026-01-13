@@ -99,7 +99,7 @@
     <audio id="audio-player" controls autoplay loop playsinline></audio>
 
     <div class="button-container">
-      <button id="submit-next" style="display: none;">Evaluate Scene</button>
+      <button id="submit-next" style="display: none;">Evaluate Environment</button>
       <button id="reload-random-scene" style="display: none;">Next Sample</button>
     </div>
   </div>
@@ -184,7 +184,16 @@
       }
     }
 
-    // --- Audio unlock: unmute + play after first user gesture (required by most browsers)
+    // Stop audio immediately (pause + rewind)
+    function stopAudio() {
+      const audioPlayer = document.getElementById("audio-player");
+      if (!audioPlayer) return;
+
+      audioPlayer.pause();
+      audioPlayer.currentTime = 0;
+    }
+
+    // Audio unlock: unmute + play after first user gesture (required by most browsers)
     function enableAudioOnFirstGesture() {
       const audioPlayer = document.getElementById("audio-player");
       const audioInfo = document.getElementById("audio-info");
@@ -193,9 +202,7 @@
       audioPlayer.muted = false;
       audioPlayer.loop = true;
 
-      audioPlayer.play().catch(() => {
-        // If still blocked, user can press play manually
-      });
+      audioPlayer.play().catch(() => {});
 
       if (audioInfo && audioPlayer.src) {
         audioInfo.textContent = "Listen to the audio while interacting with the scene.";
@@ -257,7 +264,7 @@
               audioPlayer.play().then(() => {
                 audioInfo.textContent = "Tap/click anywhere to enable sound (autoplay is running muted).";
               }).catch(() => {
-                audioInfo.textContent = "Unmute and Click play to listen.";
+                audioInfo.textContent = "Click play to listen.";
               });
             });
           } else {
@@ -283,6 +290,9 @@
     }
 
     function handleFormSubmission() {
+      // 🔴 Stop audio when Evaluate Scene is pressed
+      stopAudio();
+
       document.getElementById("submit-next").style.display = "none";
       document.getElementById("reload-random-scene").style.display = "block";
 
@@ -315,4 +325,3 @@
   </script>
 </body>
 </html>
-
