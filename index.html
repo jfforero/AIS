@@ -99,7 +99,7 @@
     <audio id="audio-player" controls autoplay loop playsinline></audio>
 
     <div class="button-container">
-      <button id="submit-next" style="display: none;">Evaluate Environment</button>
+      <button id="submit-next" style="display: none;">Evaluate</button>
       <button id="reload-random-scene" style="display: none;">Next Sample</button>
     </div>
   </div>
@@ -210,7 +210,7 @@
 
       document.removeEventListener("pointerdown", enableAudioOnFirstGesture, true);
       document.removeEventListener("touchstart", enableAudioOnFirstGesture, true);
-      document.removeEventListener("click", enableAudioOnFirstGesture, true);
+      document.removeEventListener("", enableAudioOnFirstGesture, true);
     }
 
     function loadScene(index) {
@@ -264,7 +264,7 @@
               audioPlayer.play().then(() => {
                 audioInfo.textContent = "Tap/click anywhere to enable sound (autoplay is running muted).";
               }).catch(() => {
-                audioInfo.textContent = "Click play to listen.";
+                audioInfo.textContent = "Tap/click anywhere to enable sound.";
               });
             });
           } else {
@@ -325,3 +325,4 @@
   </script>
 </body>
 </html>
+
